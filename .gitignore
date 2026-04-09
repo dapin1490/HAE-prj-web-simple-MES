@@ -1,0 +1,9 @@
+# custom
+data/
+
+# default
+__pycache__/
+*.pyc
+.venv/
+.env
+.DS_Store
