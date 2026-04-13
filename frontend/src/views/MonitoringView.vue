@@ -50,6 +50,9 @@ const productionLogList = computed(() =>
 const {
   connectionState: productionTrendConnectionState,
   isConnected: isProductionTrendConnected,
+  isAutoReconnectEnabled: isAutoReconnectEnabled,
+  reconnectAttemptCount: productionTrendReconnectAttemptCount,
+  reconnectDelayMs: productionTrendReconnectDelayMs,
   lastErrorMessage: productionTrendErrorMessage,
   receivedMessageList: productionTrendMessageList,
   connect: connectProductionTrendSocket,
@@ -135,10 +138,23 @@ function refreshMonitoringData() {
       <p>
         STOMP 연결 상태:
         <strong
-          :class="isProductionTrendConnected ? 'feature-view__status--ok' : 'feature-view__status--warn'"
+          :class="
+            isProductionTrendConnected
+              ? 'feature-view__status--ok'
+              : productionTrendConnectionState === 'reconnecting'
+                ? 'feature-view__status--danger'
+                : 'feature-view__status--warn'
+          "
         >
           {{ productionTrendConnectionState }}
         </strong>
+      </p>
+      <p v-if="productionTrendConnectionState === 'reconnecting'" class="feature-view__status-hint">
+        재연결 시도 중... (시도 {{ productionTrendReconnectAttemptCount }}회, 간격
+        {{ productionTrendReconnectDelayMs }}ms)
+      </p>
+      <p v-else-if="!isAutoReconnectEnabled" class="feature-view__status-hint">
+        자동 재연결 비활성화 상태입니다.
       </p>
       <p v-if="productionTrendErrorMessage !== ''" class="feature-view__error">
         {{ productionTrendErrorMessage }}
@@ -304,6 +320,15 @@ function refreshMonitoringData() {
 
 .feature-view__status--warn {
   color: var(--color-status-warning);
+}
+
+.feature-view__status--danger {
+  color: var(--color-status-danger);
+}
+
+.feature-view__status-hint {
+  margin-top: var(--space-xs);
+  color: var(--color-text);
 }
 
 .feature-view__error {
