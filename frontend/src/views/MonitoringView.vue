@@ -1,6 +1,7 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useAsyncRequest } from '@/composables/useAsyncRequest'
+import { useProductionTrendSocket } from '@/composables/useProductionTrendSocket'
 import {
   getProductionLogsByWorkOrderId,
   getProductionProgress,
@@ -45,6 +46,40 @@ const workOrderList = computed(() =>
 const productionLogList = computed(() =>
   Array.isArray(productionLogsData.value) ? productionLogsData.value : [],
 )
+
+const {
+  connectionState: productionTrendConnectionState,
+  isConnected: isProductionTrendConnected,
+  isAutoReconnectEnabled: isAutoReconnectEnabled,
+  reconnectAttemptCount: productionTrendReconnectAttemptCount,
+  reconnectDelayMs: productionTrendReconnectDelayMs,
+  lastErrorMessage: productionTrendErrorMessage,
+  receivedMessageList: productionTrendMessageList,
+  connect: connectProductionTrendSocket,
+  disconnect: disconnectProductionTrendSocket,
+  clearReceivedMessages: clearProductionTrendMessages,
+} = useProductionTrendSocket()
+
+onMounted(() => {
+  connectProductionTrendSocket()
+})
+
+onBeforeUnmount(() => {
+  disconnectProductionTrendSocket()
+})
+
+const filteredRealtimeTrendMessageList = computed(() => {
+  if (selectedWorkOrderId.value === '') {
+    return productionTrendMessageList.value
+  }
+
+  return productionTrendMessageList.value.filter((messageItem) => {
+    if (typeof messageItem !== 'object' || messageItem === null) {
+      return false
+    }
+    return String(messageItem.wo_id ?? '') === selectedWorkOrderId.value
+  })
+})
 
 function getFirstDefinedValue(recordObject, candidateKeys) {
   for (const key of candidateKeys) {
@@ -97,6 +132,74 @@ function refreshMonitoringData() {
         다시 조회
       </button>
     </header>
+
+    <section class="feature-view__panel">
+      <h3>실시간 연결 상태</h3>
+      <p>
+        STOMP 연결 상태:
+        <strong
+          :class="
+            isProductionTrendConnected
+              ? 'feature-view__status--ok'
+              : productionTrendConnectionState === 'reconnecting'
+                ? 'feature-view__status--danger'
+                : 'feature-view__status--warn'
+          "
+        >
+          {{ productionTrendConnectionState }}
+        </strong>
+      </p>
+      <p v-if="productionTrendConnectionState === 'reconnecting'" class="feature-view__status-hint">
+        재연결 시도 중... (시도 {{ productionTrendReconnectAttemptCount }}회, 간격
+        {{ productionTrendReconnectDelayMs }}ms)
+      </p>
+      <p v-else-if="!isAutoReconnectEnabled" class="feature-view__status-hint">
+        자동 재연결 비활성화 상태입니다.
+      </p>
+      <p v-if="productionTrendErrorMessage !== ''" class="feature-view__error">
+        {{ productionTrendErrorMessage }}
+      </p>
+      <div class="feature-view__actions">
+        <button type="button" :disabled="isProductionTrendConnected" @click="connectProductionTrendSocket">
+          연결
+        </button>
+        <button type="button" :disabled="!isProductionTrendConnected" @click="disconnectProductionTrendSocket">
+          해제
+        </button>
+        <button type="button" :disabled="productionTrendMessageList.length === 0" @click="clearProductionTrendMessages">
+          메시지 비우기
+        </button>
+      </div>
+    </section>
+
+    <section class="feature-view__panel">
+      <h3>실시간 트렌드 스트림</h3>
+      <p v-if="filteredRealtimeTrendMessageList.length === 0">
+        수신된 실시간 메시지가 없습니다.
+      </p>
+      <div v-else class="feature-view__table-wrap">
+        <table class="feature-view__table">
+          <thead>
+            <tr>
+              <th>wo_id</th>
+              <th>timestamp</th>
+              <th>temp_pv</th>
+              <th>speed</th>
+              <th>progress</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(messageItem, messageIndex) in filteredRealtimeTrendMessageList" :key="messageIndex">
+              <td>{{ getFirstDefinedValue(messageItem, ['wo_id']) }}</td>
+              <td>{{ getFirstDefinedValue(messageItem, ['timestamp']) }}</td>
+              <td>{{ getFirstDefinedValue(messageItem, ['temp_pv']) }}</td>
+              <td>{{ getFirstDefinedValue(messageItem, ['speed']) }}</td>
+              <td>{{ getFirstDefinedValue(messageItem, ['progress']) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <section class="feature-view__panel">
       <h3>진척률 요약</h3>
@@ -204,6 +307,28 @@ function refreshMonitoringData() {
 .feature-view__label {
   display: block;
   margin-bottom: var(--space-xs);
+}
+
+.feature-view__actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.feature-view__status--ok {
+  color: var(--color-status-normal);
+}
+
+.feature-view__status--warn {
+  color: var(--color-status-warning);
+}
+
+.feature-view__status--danger {
+  color: var(--color-status-danger);
+}
+
+.feature-view__status-hint {
+  margin-top: var(--space-xs);
+  color: var(--color-text);
 }
 
 .feature-view__error {
