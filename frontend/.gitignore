@@ -1,6 +1,5 @@
 # custom
 .env*
-!.env.example
 
 # Logs
 logs
