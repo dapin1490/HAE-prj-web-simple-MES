@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useAsyncRequest } from '@/composables/useAsyncRequest'
 import { useProductionTrendSocket } from '@/composables/useProductionTrendSocket'
 import {
@@ -51,13 +51,11 @@ const {
   connectionState: productionTrendConnectionState,
   isConnected: isProductionTrendConnected,
   lastErrorMessage: productionTrendErrorMessage,
-  lastReceivedMessage: latestProductionTrendMessage,
+  receivedMessageList: productionTrendMessageList,
   connect: connectProductionTrendSocket,
   disconnect: disconnectProductionTrendSocket,
+  clearReceivedMessages: clearProductionTrendMessages,
 } = useProductionTrendSocket()
-
-const realtimeTrendMessageList = ref([])
-const MAX_REALTIME_MESSAGE_COUNT = 50
 
 onMounted(() => {
   connectProductionTrendSocket()
@@ -67,23 +65,12 @@ onBeforeUnmount(() => {
   disconnectProductionTrendSocket()
 })
 
-watch(latestProductionTrendMessage, (messagePayload) => {
-  if (messagePayload === null) {
-    return
-  }
-
-  realtimeTrendMessageList.value = [
-    messagePayload,
-    ...realtimeTrendMessageList.value,
-  ].slice(0, MAX_REALTIME_MESSAGE_COUNT)
-})
-
 const filteredRealtimeTrendMessageList = computed(() => {
   if (selectedWorkOrderId.value === '') {
-    return realtimeTrendMessageList.value
+    return productionTrendMessageList.value
   }
 
-  return realtimeTrendMessageList.value.filter((messageItem) => {
+  return productionTrendMessageList.value.filter((messageItem) => {
     if (typeof messageItem !== 'object' || messageItem === null) {
       return false
     }
@@ -162,6 +149,9 @@ function refreshMonitoringData() {
         </button>
         <button type="button" :disabled="!isProductionTrendConnected" @click="disconnectProductionTrendSocket">
           해제
+        </button>
+        <button type="button" :disabled="productionTrendMessageList.length === 0" @click="clearProductionTrendMessages">
+          메시지 비우기
         </button>
       </div>
     </section>

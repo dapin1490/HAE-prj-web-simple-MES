@@ -2,6 +2,8 @@ import { computed, ref } from 'vue'
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client/dist/sockjs'
 
+const DEFAULT_MAX_REALTIME_MESSAGE_COUNT = 50
+
 function getHttpOriginFromApiBaseUrl() {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
   if (typeof apiBaseUrl !== 'string' || apiBaseUrl.trim() === '') {
@@ -36,6 +38,7 @@ export function useProductionTrendSocket() {
   const connectionState = ref('disconnected')
   const lastErrorMessage = ref('')
   const lastReceivedMessage = ref(null)
+  const receivedMessageList = ref([])
   let stompClient = null
   let topicSubscription = null
 
@@ -74,11 +77,18 @@ export function useProductionTrendSocket() {
       onConnect: () => {
         connectionState.value = 'connected'
         topicSubscription = nextClient.subscribe(getProductionTrendTopic(), (message) => {
+          let parsedMessage
           try {
-            lastReceivedMessage.value = JSON.parse(message.body)
+            parsedMessage = JSON.parse(message.body)
           } catch {
-            lastReceivedMessage.value = message.body
+            parsedMessage = message.body
           }
+
+          lastReceivedMessage.value = parsedMessage
+          receivedMessageList.value = [parsedMessage, ...receivedMessageList.value].slice(
+            0,
+            DEFAULT_MAX_REALTIME_MESSAGE_COUNT,
+          )
         })
       },
       onStompError: (frame) => {
@@ -98,12 +108,18 @@ export function useProductionTrendSocket() {
     stompClient.activate()
   }
 
+  function clearReceivedMessages() {
+    receivedMessageList.value = []
+  }
+
   return {
     connectionState,
     isConnected,
     lastErrorMessage,
     lastReceivedMessage,
+    receivedMessageList,
     connect,
     disconnect,
+    clearReceivedMessages,
   }
 }
