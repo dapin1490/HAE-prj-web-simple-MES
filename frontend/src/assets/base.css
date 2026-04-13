@@ -33,6 +33,29 @@
   --color-heading: var(--vt-c-text-light-1);
   --color-text: var(--vt-c-text-light-1);
 
+  --color-status-normal: #2e7d32;
+  --color-status-warning: #ed6c02;
+  --color-status-danger: #d32f2f;
+  --color-brand-primary: #42b883;
+  --color-brand-primary-soft: #e8f7f1;
+  --color-brand-primary-contrast: #145a32;
+
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+
+  --layout-sidebar-width: 240px;
+  --layout-mobile-breakpoint: 900px;
+
   --section-gap: 160px;
 }
 
@@ -47,6 +70,8 @@
 
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
+    --color-brand-primary-soft: #205646;
+    --color-brand-primary-contrast: #ecfff7;
   }
 }
 

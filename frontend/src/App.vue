@@ -42,13 +42,13 @@ const menuItems = [
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: var(--layout-sidebar-width) 1fr;
   background-color: var(--color-background-soft);
 }
 
 .app-sidebar {
-  padding: 1rem;
-  border-right: 1px solid var(--color-border, #e0e0e0);
+  padding: var(--space-md);
+  border-right: 1px solid var(--color-border);
   background-color: var(--color-background);
 }
 
@@ -60,32 +60,32 @@ const menuItems = [
 .app-header {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  padding: 1rem;
-  border-bottom: 1px solid var(--color-border, #d6d6d6);
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
   background-color: var(--color-background);
 }
 
 .app-header__item {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
 }
 
 .app-title {
-  margin: 0 0 0.75rem;
-  font-size: 1.125rem;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-lg);
 }
 
 .app-nav {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--space-xs);
 }
 
 .app-nav__link {
   display: block;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--color-border, #d0d0d0);
-  border-radius: 6px;
+  padding: var(--space-2xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   text-decoration: none;
   color: inherit;
   background-color: var(--color-background);
@@ -93,12 +93,13 @@ const menuItems = [
 
 .app-nav__link.router-link-exact-active {
   font-weight: 700;
-  border-color: #42b883;
-  background-color: #e8f7f1;
+  border-color: var(--color-brand-primary);
+  background-color: var(--color-brand-primary-soft);
+  color: var(--color-brand-primary-contrast);
 }
 
 .app-content {
-  padding: 1rem;
+  padding: var(--space-md);
 }
 
 @media (max-width: 900px) {
@@ -109,7 +110,7 @@ const menuItems = [
 
   .app-sidebar {
     border-right: 0;
-    border-bottom: 1px solid var(--color-border, #e0e0e0);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .app-nav {
