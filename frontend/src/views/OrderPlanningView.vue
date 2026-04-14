@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useAsyncRequest } from '@/composables/useAsyncRequest'
 import {
   getOrders,
@@ -10,6 +10,43 @@ import {
 const selectedProductId = ref('')
 const selectedOrderRow = ref(null)
 const isIssueModalOpen = ref(false)
+
+const triggerButtonRef = ref(null)
+const modalContentRef = ref(null)
+
+function getFocusableElements(container) {
+  return Array.from(
+    container.querySelectorAll(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+    ),
+  )
+}
+
+function onModalKeydown(event) {
+  if (event.key === 'Escape') {
+    closeIssueModal()
+    return
+  }
+  if (event.key !== 'Tab' || !modalContentRef.value) return
+
+  const focusable = getFocusableElements(modalContentRef.value)
+  if (focusable.length === 0) return
+
+  const firstEl = focusable[0]
+  const lastEl = focusable[focusable.length - 1]
+
+  if (event.shiftKey) {
+    if (document.activeElement === firstEl) {
+      event.preventDefault()
+      lastEl.focus()
+    }
+  } else {
+    if (document.activeElement === lastEl) {
+      event.preventDefault()
+      firstEl.focus()
+    }
+  }
+}
 
 const {
   data: productsData,
@@ -141,10 +178,23 @@ function openIssueModal() {
     return
   }
   isIssueModalOpen.value = true
+  nextTick(() => {
+    if (modalContentRef.value) {
+      const focusable = getFocusableElements(modalContentRef.value)
+      if (focusable.length > 0) {
+        focusable[0].focus()
+      } else {
+        modalContentRef.value.focus()
+      }
+    }
+  })
 }
 
 function closeIssueModal() {
   isIssueModalOpen.value = false
+  nextTick(() => {
+    triggerButtonRef.value?.focus()
+  })
 }
 
 function isRowSelected(orderRecord) {
@@ -228,6 +278,7 @@ function isRowSelected(orderRecord) {
         <h3>수주 목록</h3>
         <div class="feature-view__toolbar-actions">
           <button
+            ref="triggerButtonRef"
             type="button"
             :disabled="selectedOrderRow === null || ordersLoading"
             @click="openIssueModal"
@@ -280,9 +331,10 @@ function isRowSelected(orderRecord) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="issue-modal-title"
+        @keydown="onModalKeydown"
       >
         <div class="issue-modal__backdrop" @click="closeIssueModal" />
-        <div class="issue-modal__content">
+        <div ref="modalContentRef" class="issue-modal__content">
           <h3 id="issue-modal-title">작업 지시 발행</h3>
           <p class="feature-view__hint">
             백엔드에 WorkOrder 생성 API가 <code>docs/api-details.md</code>에 반영되면 이 화면에서 연동합니다.
