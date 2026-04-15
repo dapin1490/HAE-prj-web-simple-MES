@@ -31,7 +31,7 @@ related_docs:
 
 - 영역: `Frontend`, `Backend`
 - 최종 선택: WebSocket(STOMP), SockJS
-- 버전/규칙: WebSocket(STOMP)은 `be-mes-project/build.gradle`에 정의된 버전을 따르며, SockJS 또한 향후 `be-mes-project/build.gradle`에 추가 예정, 버전은 Spring Boot 3.x/Java 17과 호환 범위로 고정함
+- 버전/규칙: WebSocket(STOMP) 서버 구성은 `be-mes-project/build.gradle`에 이미 포함된 `spring-boot-starter-websocket`을 기준으로 하며, SockJS는 백엔드에서 별도 Gradle 의존성을 추가하는 대상이라기보다 WebSocket 엔드포인트 설정에서 `withSockJS()`로 활성화하고, 프론트엔드는 기존 `sockjs-client` 의존성을 사용함. 관련 버전은 Spring Boot 3.x/Java 17과 호환 범위를 따름
 - 선택 이유
   - 본 프로젝트의 주요 UX 고려사항 중 하나는 사용자가 새로고침을 하지 않고서도 화면에 보이는 데이터가 업데이트되어야 한다는 점이었음. 이를 구현하기 위해 WebSocket을 고려하였으며, 메시지 규격 정의를 간소화하기 위해 STOMP를 채택함
   - 기본적으로 자바 스프링부트는 SockJS가 없어도 웹소켓 통신이 가능하나, 본 프로젝트는 웹소켓만을 통신 프로토콜로 사용하기 때문에 통신에 문제가 생겼을 경우 시스템 전체가 멈추게 되는 리스크가 존재한다. 이에 SockJS가 제공하는 fallback 기능을 활용하여 통신 문제가 생겼을 경우 대체 방안을 제공하기 위해 채택함.
