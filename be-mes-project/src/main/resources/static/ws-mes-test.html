@@ -132,6 +132,57 @@
       box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15);
     }
 
+    .dot.pending {
+      background: #60a5fa;
+      box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.15);
+    }
+
+    .notice {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: #bfdbfe;
+      font-size: 12px;
+      min-height: 40px;
+    }
+
+    .toast-wrap {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      display: grid;
+      gap: 8px;
+      width: min(360px, calc(100vw - 32px));
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .toast {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #0b1220;
+      color: var(--text);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+      font-size: 12px;
+      line-height: 1.4;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success { border-color: rgba(34, 197, 94, 0.55); }
+    .toast.info { border-color: rgba(56, 189, 248, 0.55); }
+    .toast.warning { border-color: rgba(245, 158, 11, 0.55); }
+    .toast.error { border-color: rgba(239, 68, 68, 0.55); }
+
     .examples {
       display: grid;
       gap: 10px;
@@ -249,6 +300,8 @@
         <button class="ghost" id="clearLogBtn">Clear Log</button>
       </div>
 
+      <div id="notice" class="notice">대기 중: Connect를 눌러 연결을 시작하세요.</div>
+
       <p class="hint" style="margin-top: 12px;">
         1) Connect → 2) Subscribe → 3) Send 순서로 사용하세요. <br />
         SockJS 지원 서버에서는 이 페이지를 <code>http://localhost:8080/ws-mes-test.html</code> 로 열어 테스트할 수 있습니다.
@@ -293,6 +346,8 @@
     </section>
   </main>
 
+  <div id="toastWrap" class="toast-wrap"></div>
+
   <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
   <script>
@@ -315,11 +370,14 @@
       subDot: document.getElementById('subDot'),
       subStatus: document.getElementById('subStatus'),
       lastMessage: document.getElementById('lastMessage'),
+      notice: document.getElementById('notice'),
+      toastWrap: document.getElementById('toastWrap'),
     };
 
     let stompClient = null;
     let activeSubscription = null;
     let connected = false;
+    let connecting = false;
 
     function appendLog(message) {
       const line = `[${new Date().toLocaleTimeString()}] ${message}`;
@@ -327,10 +385,58 @@
       elements.log.scrollTop = elements.log.scrollHeight;
     }
 
+    function setNotice(message) {
+      elements.notice.textContent = message;
+    }
+
+    function showToast(message, type = 'info', timeoutMs = 1800) {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      elements.toastWrap.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.add('show');
+      });
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+          toast.remove();
+        }, 220);
+      }, timeoutMs);
+    }
+
+    function setButtonsState() {
+      elements.connectBtn.disabled = connected || connecting;
+      elements.subscribeBtn.disabled = !connected;
+      elements.sendBtn.disabled = !connected;
+      elements.disconnectBtn.disabled = !connected && !connecting;
+    }
+
+    async function runWithButtonBusy(button, busyText, action) {
+      const originalText = button.textContent;
+      button.textContent = busyText;
+      button.disabled = true;
+      try {
+        await action();
+      } finally {
+        button.textContent = originalText;
+        setButtonsState();
+      }
+    }
+
     function setConnectionStatus(isConnected) {
       connected = isConnected;
       elements.connDot.className = isConnected ? 'dot connected' : 'dot';
       elements.connStatus.textContent = isConnected ? 'Connected' : 'Disconnected';
+      setButtonsState();
+    }
+
+    function setConnectionPending() {
+      elements.connDot.className = 'dot pending';
+      elements.connStatus.textContent = 'Connecting...';
+      setButtonsState();
     }
 
     function setSubscriptionStatus(isSubscribed, destination = '') {
@@ -358,20 +464,32 @@
         reconnectDelay: 0,
         debug: (str) => appendLog(`DEBUG: ${str}`),
         onConnect: () => {
+          connecting = false;
           setConnectionStatus(true);
+          setNotice('연결 성공. 필요하면 Subscribe 후 Send 하세요.');
+          showToast('연결 성공', 'success');
           appendLog('STOMP connected.');
           subscribeCurrent();
         },
         onStompError: (frame) => {
+          connecting = false;
+          setNotice(`STOMP 에러: ${frame.headers['message'] || 'unknown'}`);
+          showToast('STOMP 에러 발생', 'error', 2400);
           appendLog(`STOMP error: ${frame.headers['message'] || 'unknown'}`);
           appendLog(frame.body || '(empty body)');
         },
         onWebSocketClose: () => {
+          connecting = false;
           setConnectionStatus(false);
           setSubscriptionStatus(false);
+          setNotice('연결이 닫혔습니다. Connect로 다시 연결할 수 있습니다.');
+          showToast('연결이 종료되었습니다', 'warning');
           appendLog('WebSocket closed.');
         },
         onWebSocketError: (event) => {
+          connecting = false;
+          setNotice(`WebSocket 에러: ${event?.message || 'unknown'}`);
+          showToast('WebSocket 에러 발생', 'error', 2400);
           appendLog(`WebSocket error: ${event?.message || 'unknown'}`);
         },
       });
@@ -381,13 +499,23 @@
     function connect() {
       if (stompClient && connected) {
         appendLog('Already connected.');
+        setNotice('이미 연결되어 있습니다. Subscribe 또는 Send를 진행하세요.');
+        showToast('이미 연결되어 있습니다', 'info');
         return;
       }
       try {
+        connecting = true;
+        setConnectionPending();
+        setNotice('연결 시도 중입니다...');
+        showToast('연결 시도 중...', 'info', 1200);
         stompClient = createClient();
         appendLog(`Connecting to ${elements.url.value.trim()} ...`);
         stompClient.activate();
       } catch (error) {
+        connecting = false;
+        setConnectionStatus(false);
+        setNotice(`연결 실패: ${error.message}`);
+        showToast('연결 실패', 'error', 2400);
         appendLog(`Connect failed: ${error.message}`);
       }
     }
@@ -403,12 +531,14 @@
     function subscribeCurrent() {
       if (!stompClient || !connected) {
         appendLog('Connect first.');
+        showToast('먼저 Connect 하세요', 'warning');
         return;
       }
 
       const destination = elements.subscribeDestination.value.trim();
       if (!destination) {
         appendLog('Subscribe destination is empty.');
+        showToast('Subscribe destination이 비어 있습니다', 'warning', 2200);
         return;
       }
 
@@ -421,15 +551,19 @@
           // keep raw body
         }
         elements.lastMessage.textContent = `Received from ${destination}`;
+        setNotice(`메시지 수신 성공: ${destination}`);
         appendLog(`RECEIVED ${destination}:\n${body}`);
       });
       setSubscriptionStatus(true, destination);
+      setNotice(`구독 성공: ${destination}`);
+      showToast('구독 성공', 'success');
       appendLog(`Subscribed to ${destination}`);
     }
 
     function sendMessage() {
       if (!stompClient || !connected) {
         appendLog('Connect first.');
+        showToast('먼저 Connect 하세요', 'warning');
         return;
       }
 
@@ -439,6 +573,7 @@
 
       if (!destination) {
         appendLog('Send destination is empty.');
+        showToast('Send destination이 비어 있습니다', 'warning', 2200);
         return;
       }
 
@@ -448,8 +583,12 @@
           headers: sendHeader,
           body: content,
         });
+        setNotice(`전송 성공: ${destination}`);
+        showToast('전송 완료', 'success');
         appendLog(`SENT ${destination}: ${content}`);
       } catch (error) {
+        setNotice(`전송 실패: ${error.message}`);
+        showToast('전송 실패', 'error', 2400);
         appendLog(`Send failed: ${error.message}`);
       }
     }
@@ -460,7 +599,10 @@
         stompClient.deactivate();
         stompClient = null;
       }
+      connecting = false;
       setConnectionStatus(false);
+      setNotice('연결이 종료되었습니다.');
+      showToast('연결 종료', 'warning');
       appendLog('Disconnected.');
     }
 
@@ -507,9 +649,15 @@
       appendLog(`Loaded example: ${example}`);
     }
 
-    elements.connectBtn.addEventListener('click', connect);
-    elements.subscribeBtn.addEventListener('click', subscribeCurrent);
-    elements.sendBtn.addEventListener('click', sendMessage);
+    elements.connectBtn.addEventListener('click', () => {
+      runWithButtonBusy(elements.connectBtn, 'Connecting...', async () => connect());
+    });
+    elements.subscribeBtn.addEventListener('click', () => {
+      runWithButtonBusy(elements.subscribeBtn, 'Subscribing...', async () => subscribeCurrent());
+    });
+    elements.sendBtn.addEventListener('click', () => {
+      runWithButtonBusy(elements.sendBtn, 'Sending...', async () => sendMessage());
+    });
     elements.disconnectBtn.addEventListener('click', disconnect);
     elements.clearLogBtn.addEventListener('click', () => (elements.log.textContent = ''));
 
@@ -519,6 +667,7 @@
 
     window.addEventListener('beforeunload', disconnect);
 
+    setButtonsState();
     appendLog('Ready. Choose an example or fill destinations manually.');
   </script>
 </body>
