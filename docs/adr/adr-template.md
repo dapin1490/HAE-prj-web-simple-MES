@@ -1,9 +1,12 @@
 ---
-- ADR ID: `YYYYMMDD-HHMM-{slug}`
-- 상태: `Proposed | Accepted | Superseded | Rejected`
-- 작성일: `YYYY-MM-DD`
-- 작성자: `@작성자`
-- 관련 문서: `README.md`, `docs/system-architecture-design.md`, `docs/api-details.md`
+adr_id: "YYYYMMDD-HHMM-{slug}"
+status: "Proposed | Accepted | Superseded | Rejected"
+created_at: "YYYY-MM-DD"
+author: "@작성자"
+related_docs:
+  - "README.md"
+  - "docs/system-architecture-design.md"
+  - "docs/api-details.md"
 ---
 
 <!--
