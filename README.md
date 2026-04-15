@@ -25,7 +25,7 @@
 | 구분 | 기술 |
 | --- | --- |
 | **Backend** | Java 17, Spring Boot 3.x, MySQL 8.x |
-| **Frontend** | Vue.js 3.x, Pinia, Axios |
+| **Frontend** | Vue.js 3.x, Pinia, Vue Router, @stomp/stompjs, sockjs-client, Chart.js |
 | **통신** | **STOMP WebSocket 메인 통신** (`/ws-mes`, `/app`, 토픽 `/topic/production-trend`, 선택 `/topic/equipment-alert`) |
 
 실시간 공정 트렌드는 REST 폴링이 아니라 **STOMP 기반 WebSocket**으로 전달하는 것을 전제로 합니다. 상세는 `docs/api-details.md`를 따릅니다.
