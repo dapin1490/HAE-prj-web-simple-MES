@@ -14,7 +14,7 @@
 ## 모노레포 구조
 
 - 백엔드: `be-mes-project/` (Spring Boot, Gradle). 기술 버전은 해당 `build.gradle`을 따른다.
-- 프론트엔드: Vue.js 3.x. 루트 `frontend/` 디렉터리는 도입 시 추가한다.
+- 프론트엔드: Vue.js 3.x. 루트 `frontend/` 디렉터리에 포함되어 있다.
 
 엔티티, 마이그레이션, STOMP JSON 계약을 만들거나 수정할 때는 `docs/data-schema-definition.md`의 컬럼명·타입과 `docs/api-details.md`의 JSON 키(스네이크 케이스) 규칙을 따른다.
 
