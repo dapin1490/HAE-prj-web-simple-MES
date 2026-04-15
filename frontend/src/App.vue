@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { resetSimulation, startSimulation, stopSimulation } from '@/api/simulationApi'
-import { ApiClientError } from '@/api/httpClient'
+import { StompClientError } from '@/api/httpClient'
 
 const menuItems = [
   { to: '/dashboard', label: '대시보드' },
@@ -52,7 +52,7 @@ async function runSimulationAction(actionType) {
     setSimulationStatusMessage('시뮬레이션 초기화 요청을 완료했습니다.', 'warning')
   } catch (error) {
     const statusMessage =
-      error instanceof ApiClientError
+      error instanceof StompClientError
         ? error.message
         : '시뮬레이션 제어 요청 중 오류가 발생했습니다.'
     setSimulationStatusMessage(statusMessage, 'danger')

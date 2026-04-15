@@ -54,7 +54,7 @@ const productionLogList = computed(() =>
 const {
   connectionState: productionTrendConnectionState,
   isConnected: isProductionTrendConnected,
-  isAutoReconnectEnabled: isAutoReconnectEnabled,
+  isAutoReconnectEnabled,
   reconnectAttemptCount: productionTrendReconnectAttemptCount,
   reconnectDelayMs: productionTrendReconnectDelayMs,
   lastErrorMessage: productionTrendErrorMessage,
