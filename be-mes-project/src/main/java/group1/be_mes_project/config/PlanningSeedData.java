@@ -68,19 +68,19 @@ public class PlanningSeedData implements CommandLineRunner {
         workOrderRepository.save(new WorkOrder("WO-220101-002", order3, 500.0, "M-03"));
 
     productionLogRepository.save(
-        new ProductionLog(wo1, LocalDateTime.of(2022, 1, 1, 9, 0), 68.4, 62));
+        new ProductionLog(wo1, LocalDateTime.of(2022, 1, 1, 9, 0), 70, 70.0, 68.4, 62));
     productionLogRepository.save(
-        new ProductionLog(wo1, LocalDateTime.of(2022, 1, 1, 9, 1), 69.1, 64));
+        new ProductionLog(wo1, LocalDateTime.of(2022, 1, 1, 9, 1), 70, 70.0, 69.1, 64));
     productionLogRepository.save(
-        new ProductionLog(wo1, LocalDateTime.of(2022, 1, 1, 9, 2), 69.7, 65));
+        new ProductionLog(wo1, LocalDateTime.of(2022, 1, 1, 9, 2), 70, 70.0, 69.7, 65));
 
     productionLogRepository.save(
-        new ProductionLog(wo2, LocalDateTime.of(2022, 1, 2, 10, 0), 67.8, 58));
+        new ProductionLog(wo2, LocalDateTime.of(2022, 1, 2, 10, 0), 69, 69.0, 67.8, 58));
     productionLogRepository.save(
-        new ProductionLog(wo2, LocalDateTime.of(2022, 1, 2, 10, 1), 68.3, 60));
+        new ProductionLog(wo2, LocalDateTime.of(2022, 1, 2, 10, 1), 69, 69.0, 68.3, 60));
 
     productionLogRepository.save(
-        new ProductionLog(wo3, LocalDateTime.of(2022, 1, 1, 11, 0), 70.2, 67));
+        new ProductionLog(wo3, LocalDateTime.of(2022, 1, 1, 11, 0), 71, 71.0, 70.2, 67));
   }
 }
 

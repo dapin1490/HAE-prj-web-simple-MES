@@ -62,6 +62,8 @@ public class ExecutionServiceImpl implements ExecutionService {
         log.getLogId(),
         log.getWorkOrder().getWoId(),
         log.getTimestamp(),
+        log.getCrTemp(),
+        log.getTempSp(),
         log.getTempPv(),
         log.getSpeed());
   }
