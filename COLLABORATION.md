@@ -22,7 +22,7 @@
 ### 2.1 디렉터리
 
 - `be-mes-project/`: Spring Boot(Gradle), DB 연동, 스케줄러, STOMP WebSocket 서버(구현 시). 기술 버전은 저장소의 `build.gradle`을 따른다.
-- `frontend/`: Vue 3, Composition API, `<script setup>`, 대시보드 및 관리 UI. 저장소에 추가되면 본 절을 갱신한다.
+- `frontend/`: Vue 3, Composition API, `<script setup>`, 대시보드 및 관리 UI.
 
 ### 2.2 권한과 소유 범위 (협업 기준)
 
