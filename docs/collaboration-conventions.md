@@ -26,7 +26,7 @@
   - 기본적으로는 이슈에서 선언한 TODO가 모두 완료되었고, 정합성이 확인되었으며, 오류 없이 동작함이 확인된 후에 PR을 생성한다.
   - PR 내용은 사전에 정의된 템플릿([.github/pull_request_template.md](../.github/pull_request_template.md))에 맞추어 작성한다.
   - PR 템플릿에 제시된 항목은 가능한 한 모두 작성하고, 채울 수 없는 내용은 채우지 않은 사유를 대신 작성한다.
-  - PR은 merge만 사용한다. 특별한 사유가 없는 한 rebase나 squash는 사용하지 않는다.
+  - PR 병합은 GitHub의 merge commit 방식만 사용한다. 특별한 사유가 없는 한 squash merge나 rebase merge는 사용하지 않는다.
 - 설계 변경 시 docs 내의 명세 문서를 먼저 수정하여 설계의 일관성을 유지하고, 이후 문서에 따라 개발한다.
   - 새로 변경된 설계가 있을 경우 그와 관련된 문서를 전수 검토하여 수정이 필요한 문서를 모두 업데이트한다.
 - 개발 워크플로우 ([.github/WORKFLOW.md](../.github/WORKFLOW.md) 참조)
