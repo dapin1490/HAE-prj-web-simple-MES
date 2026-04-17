@@ -1,12 +1,10 @@
 package group1.be_mes_project.config;
 
 import group1.be_mes_project.domain.entity.Inspection;
-import group1.be_mes_project.domain.entity.ProductionLog;
 import group1.be_mes_project.domain.entity.Product;
 import group1.be_mes_project.domain.entity.SalesOrder;
 import group1.be_mes_project.domain.entity.WorkOrder;
 import group1.be_mes_project.domain.repository.InspectionRepository;
-import group1.be_mes_project.domain.repository.ProductionLogRepository;
 import group1.be_mes_project.domain.repository.ProductRepository;
 import group1.be_mes_project.domain.repository.SalesOrderRepository;
 import group1.be_mes_project.domain.repository.WorkOrderRepository;
@@ -18,10 +16,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -37,7 +33,6 @@ public class PlanningSeedData implements CommandLineRunner {
   private final ProductRepository productRepository;
   private final SalesOrderRepository salesOrderRepository;
   private final WorkOrderRepository workOrderRepository;
-  private final ProductionLogRepository productionLogRepository;
   private final InspectionRepository inspectionRepository;
   private final boolean csvSeedEnabled;
 
@@ -45,13 +40,11 @@ public class PlanningSeedData implements CommandLineRunner {
       ProductRepository productRepository,
       SalesOrderRepository salesOrderRepository,
       WorkOrderRepository workOrderRepository,
-      ProductionLogRepository productionLogRepository,
       InspectionRepository inspectionRepository,
       @Value("${mes.seed.csv.enabled:true}") boolean csvSeedEnabled) {
     this.productRepository = productRepository;
     this.salesOrderRepository = salesOrderRepository;
     this.workOrderRepository = workOrderRepository;
-    this.productionLogRepository = productionLogRepository;
     this.inspectionRepository = inspectionRepository;
     this.csvSeedEnabled = csvSeedEnabled;
   }
@@ -70,7 +63,6 @@ public class PlanningSeedData implements CommandLineRunner {
     loadProducts();
     loadSalesOrders();
     loadWorkOrders();
-    loadProductionLogs();
     loadInspections();
   }
 
@@ -135,51 +127,6 @@ public class PlanningSeedData implements CommandLineRunner {
             workOrderRepository.save(new WorkOrder(woId, order, plannedQty, machineId));
           }
         });
-  }
-
-  private void loadProductionLogs() {
-    Map<String, WorkOrder> workOrdersById =
-        workOrderRepository.findAll().stream()
-            .collect(HashMap::new, (map, workOrder) -> map.put(workOrder.getWoId(), workOrder), HashMap::putAll);
-    List<ProductionLog> batch = new ArrayList<>();
-    final int batchSize = 1000;
-
-    readCsvRows(
-        "data/ProductionLogs.csv",
-        (headerMap, columns) -> {
-          Long logId = parseLong(getColumn(columns, headerMap, "log_id"));
-          String woId = getColumn(columns, headerMap, "wo_id");
-          LocalDateTime timestamp = parseDateTime(getColumn(columns, headerMap, "timestamp"));
-          Integer crTemp = parseInteger(getColumn(columns, headerMap, "cr_temp"));
-          Double tempSp = parseDouble(getColumn(columns, headerMap, "temp_sp"));
-          Double tempPv = parseDouble(getColumn(columns, headerMap, "temp_pv"));
-          Integer speed = parseInteger(getColumn(columns, headerMap, "speed"));
-
-          if (logId == null
-              || woId == null
-              || timestamp == null
-              || crTemp == null
-              || tempSp == null
-              || tempPv == null
-              || speed == null) {
-            return;
-          }
-
-          WorkOrder workOrder = workOrdersById.get(woId);
-          if (workOrder == null) {
-            return;
-          }
-
-          batch.add(new ProductionLog(logId, workOrder, timestamp, crTemp, tempSp, tempPv, speed));
-          if (batch.size() >= batchSize) {
-            productionLogRepository.saveAll(batch);
-            batch.clear();
-          }
-        });
-
-    if (!batch.isEmpty()) {
-      productionLogRepository.saveAll(batch);
-    }
   }
 
   private void loadInspections() {
@@ -255,14 +202,6 @@ public class PlanningSeedData implements CommandLineRunner {
   private Integer parseInteger(String value) {
     try {
       return value == null ? null : Integer.parseInt(value);
-    } catch (NumberFormatException exception) {
-      return null;
-    }
-  }
-
-  private Long parseLong(String value) {
-    try {
-      return value == null ? null : Long.parseLong(value);
     } catch (NumberFormatException exception) {
       return null;
     }
