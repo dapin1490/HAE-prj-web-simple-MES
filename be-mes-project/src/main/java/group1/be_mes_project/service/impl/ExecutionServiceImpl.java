@@ -9,7 +9,10 @@ import group1.be_mes_project.dto.execution.ProductionProgressDto;
 import group1.be_mes_project.dto.execution.WorkOrderDto;
 import group1.be_mes_project.dto.execution.WorkOrderProgressDto;
 import group1.be_mes_project.service.ExecutionService;
+import group1.be_mes_project.simulation.SimulationTimelineReference;
+import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,11 +22,15 @@ public class ExecutionServiceImpl implements ExecutionService {
 
   private final WorkOrderRepository workOrderRepository;
   private final ProductionLogRepository productionLogRepository;
+  private final SimulationTimelineReference timelineReference;
 
   public ExecutionServiceImpl(
-      WorkOrderRepository workOrderRepository, ProductionLogRepository productionLogRepository) {
+      WorkOrderRepository workOrderRepository,
+      ProductionLogRepository productionLogRepository,
+      SimulationTimelineReference timelineReference) {
     this.workOrderRepository = workOrderRepository;
     this.productionLogRepository = productionLogRepository;
+    this.timelineReference = timelineReference;
   }
 
   @Override
@@ -69,13 +76,36 @@ public class ExecutionServiceImpl implements ExecutionService {
   }
 
   private WorkOrderProgressDto toWorkOrderProgress(WorkOrder workOrder) {
-    double plannedQty = workOrder.getPlannedQty() == null ? 0.0 : workOrder.getPlannedQty();
-    if (plannedQty <= 0.0) {
+    String woId = workOrder.getWoId();
+    Optional<ProductionLog> firstLog =
+        productionLogRepository.findFirstByWorkOrder_WoIdOrderByTimestampAsc(woId);
+    Optional<ProductionLog> lastLog =
+        productionLogRepository.findFirstByWorkOrder_WoIdOrderByTimestampDesc(woId);
+
+    if (firstLog.isEmpty() || lastLog.isEmpty()) {
       return new WorkOrderProgressDto(workOrder.getWoId(), 0.0);
     }
 
-    long currentLoaded = productionLogRepository.countByWorkOrder_WoId(workOrder.getWoId());
-    double progress = Math.min(100.0, (currentLoaded / plannedQty) * 100.0);
+    long tCurrent =
+        Math.max(
+            0L,
+            Duration.between(firstLog.get().getTimestamp(), lastLog.get().getTimestamp())
+                .getSeconds());
+    long tTotal = timelineReference.getTotalDurationSeconds(woId);
+
+    double progress;
+    if (tTotal > 0L) {
+      progress = Math.min(100.0, (tCurrent / (double) tTotal) * 100.0);
+    } else {
+      int totalRows = timelineReference.getTotalRows(woId);
+      if (totalRows <= 0) {
+        progress = 0.0;
+      } else {
+        long currentLoaded = productionLogRepository.countByWorkOrder_WoId(woId);
+        progress = Math.min(100.0, (currentLoaded / (double) totalRows) * 100.0);
+      }
+    }
+
     return new WorkOrderProgressDto(workOrder.getWoId(), round(progress));
   }
 

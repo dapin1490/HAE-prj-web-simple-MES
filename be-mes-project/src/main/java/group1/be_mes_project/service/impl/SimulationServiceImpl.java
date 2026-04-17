@@ -4,16 +4,20 @@ import group1.be_mes_project.domain.entity.ProductionLog;
 import group1.be_mes_project.domain.entity.WorkOrder;
 import group1.be_mes_project.domain.repository.ProductionLogRepository;
 import group1.be_mes_project.domain.repository.WorkOrderRepository;
+import group1.be_mes_project.dto.simulation.EquipmentAlertDto;
 import group1.be_mes_project.dto.simulation.ProductionTrendMessageDto;
 import group1.be_mes_project.dto.simulation.SimulationStatusDto;
+import group1.be_mes_project.service.EquipmentAlertService;
 import group1.be_mes_project.service.SimulationService;
 import group1.be_mes_project.simulation.SimulationRuntimeState;
+import group1.be_mes_project.simulation.SimulationTimelineReference;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -31,6 +35,7 @@ import org.springframework.stereotype.Service;
 public class SimulationServiceImpl implements SimulationService {
 
   private static final String TREND_TOPIC = "/topic/production-trend";
+  private static final String ALERT_TOPIC = "/topic/equipment-alert";
   private static final DateTimeFormatter CSV_TIMESTAMP_FORMATTER =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -38,6 +43,8 @@ public class SimulationServiceImpl implements SimulationService {
   private final WorkOrderRepository workOrderRepository;
   private final ProductionLogRepository productionLogRepository;
   private final SimpMessagingTemplate messagingTemplate;
+  private final EquipmentAlertService equipmentAlertService;
+  private final SimulationTimelineReference timelineReference;
 
   private final String simulationSourcePath;
   private final List<SimulationRow> simulationRows = new ArrayList<>();
@@ -47,11 +54,15 @@ public class SimulationServiceImpl implements SimulationService {
       WorkOrderRepository workOrderRepository,
       ProductionLogRepository productionLogRepository,
       SimpMessagingTemplate messagingTemplate,
+      EquipmentAlertService equipmentAlertService,
+      SimulationTimelineReference timelineReference,
       @Value("${mes.simulation.source-path:}") String simulationSourcePath) {
     this.runtimeState = runtimeState;
     this.workOrderRepository = workOrderRepository;
     this.productionLogRepository = productionLogRepository;
     this.messagingTemplate = messagingTemplate;
+    this.equipmentAlertService = equipmentAlertService;
+    this.timelineReference = timelineReference;
     this.simulationSourcePath = simulationSourcePath;
   }
 
@@ -135,6 +146,19 @@ public class SimulationServiceImpl implements SimulationService {
             savedLog.getSpeed(),
             savedLog.getTimestamp(),
             progress));
+
+    // 설비 이상 감지
+    EquipmentAlertDto alert =
+        equipmentAlertService.detectAndCreateAlert(
+            workOrder.getMachineId(),
+            workOrder.getWoId(),
+            row.tempSp(),
+            row.tempPv(),
+            row.speed());
+
+    if (alert != null) {
+      messagingTemplate.convertAndSend(ALERT_TOPIC, alert);
+    }
 
     if (runtimeState.getPointer() >= simulationRows.size()) {
       runtimeState.stop();
@@ -255,13 +279,37 @@ public class SimulationServiceImpl implements SimulationService {
   }
 
   private double calculateProgress(WorkOrder workOrder) {
-    double plannedQty = workOrder.getPlannedQty() == null ? 0.0 : workOrder.getPlannedQty();
-    if (plannedQty <= 0.0) {
+    String woId = workOrder.getWoId();
+    Optional<ProductionLog> firstLog =
+        productionLogRepository.findFirstByWorkOrder_WoIdOrderByTimestampAsc(woId);
+    Optional<ProductionLog> lastLog =
+        productionLogRepository.findFirstByWorkOrder_WoIdOrderByTimestampDesc(woId);
+
+    if (firstLog.isEmpty() || lastLog.isEmpty()) {
       return 0.0;
     }
 
-    long loadedCount = productionLogRepository.countByWorkOrder_WoId(workOrder.getWoId());
-    return Math.round(Math.min(100.0, (loadedCount / plannedQty) * 100.0) * 10.0) / 10.0;
+    long tCurrent =
+        Math.max(
+            0L,
+            Duration.between(firstLog.get().getTimestamp(), lastLog.get().getTimestamp())
+                .getSeconds());
+    long tTotal = timelineReference.getTotalDurationSeconds(woId);
+
+    double progress;
+    if (tTotal > 0L) {
+      progress = Math.min(100.0, (tCurrent / (double) tTotal) * 100.0);
+    } else {
+      int totalRows = timelineReference.getTotalRows(woId);
+      if (totalRows <= 0) {
+        progress = 0.0;
+      } else {
+        long loadedCount = productionLogRepository.countByWorkOrder_WoId(woId);
+        progress = Math.min(100.0, (loadedCount / (double) totalRows) * 100.0);
+      }
+    }
+
+    return Math.round(progress * 10.0) / 10.0;
   }
 
   private record SimulationRow(
