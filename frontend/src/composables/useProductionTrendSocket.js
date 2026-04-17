@@ -8,6 +8,7 @@ const DEFAULT_MAX_EQUIPMENT_ALERT_COUNT = 30
 const DEFAULT_RECONNECT_DELAY_MS = 3000
 const DEFAULT_WS_ENDPOINT = 'http://localhost:8080/ws-mes'
 const DEFAULT_EQUIPMENT_ALERT_COOLDOWN_MS = 10000
+const DEFAULT_MAX_EQUIPMENT_ALERT_DEDUP_KEYS = 500
 
 function getWebSocketEndpoint() {
   const configuredEndpoint = import.meta.env.VITE_WS_ENDPOINT
@@ -79,6 +80,16 @@ function createProductionTrendSocketStore() {
   const isConnected = computed(() => connectionState.value === 'connected')
   const isAutoReconnectEnabled = computed(() => reconnectDelayMs > 0)
 
+  function trimEquipmentAlertDedupMap() {
+    while (equipmentAlertLastSeenAtMap.size > DEFAULT_MAX_EQUIPMENT_ALERT_DEDUP_KEYS) {
+      const oldestKey = equipmentAlertLastSeenAtMap.keys().next().value
+      if (oldestKey === undefined) {
+        return
+      }
+      equipmentAlertLastSeenAtMap.delete(oldestKey)
+    }
+  }
+
   function pushEquipmentAlert(rawAlert) {
     const normalizedAlert =
       typeof rawAlert === 'object' && rawAlert !== null
@@ -109,6 +120,7 @@ function createProductionTrendSocketStore() {
       return
     }
     equipmentAlertLastSeenAtMap.set(alertCooldownKey, nowTimeMs)
+    trimEquipmentAlertDedupMap()
 
     latestEquipmentAlert.value = normalizedAlert
     equipmentAlertList.value = [normalizedAlert, ...equipmentAlertList.value].slice(
