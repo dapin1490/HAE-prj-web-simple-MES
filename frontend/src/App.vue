@@ -17,7 +17,7 @@ const simulationStatusLabel = ref('정지')
 const simulationActionInProgress = ref(false)
 const simulationStatusMessage = ref('')
 const simulationStatusTone = ref('normal')
-const themeMode = ref('dark')
+const themeMode = ref('light')
 const THEME_STORAGE_KEY = 'mes-theme-mode'
 
 const isSimulationRunning = computed(() => simulationStatusLabel.value === '가동 중')
@@ -54,7 +54,7 @@ onMounted(() => {
   if (savedThemeMode === 'light' || savedThemeMode === 'dark') {
     themeMode.value = savedThemeMode
   } else {
-    themeMode.value = 'dark'
+    themeMode.value = 'light'
   }
   document.documentElement.setAttribute('data-theme', themeMode.value)
   connectProductionTrendSocket()
