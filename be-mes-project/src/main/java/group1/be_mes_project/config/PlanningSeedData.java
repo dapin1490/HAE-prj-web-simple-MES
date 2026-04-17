@@ -147,6 +147,7 @@ public class PlanningSeedData implements CommandLineRunner {
     readCsvRows(
         "data/ProductionLogs.csv",
         (headerMap, columns) -> {
+          Long logId = parseLong(getColumn(columns, headerMap, "log_id"));
           String woId = getColumn(columns, headerMap, "wo_id");
           LocalDateTime timestamp = parseDateTime(getColumn(columns, headerMap, "timestamp"));
           Integer crTemp = parseInteger(getColumn(columns, headerMap, "cr_temp"));
@@ -154,7 +155,8 @@ public class PlanningSeedData implements CommandLineRunner {
           Double tempPv = parseDouble(getColumn(columns, headerMap, "temp_pv"));
           Integer speed = parseInteger(getColumn(columns, headerMap, "speed"));
 
-          if (woId == null
+          if (logId == null
+              || woId == null
               || timestamp == null
               || crTemp == null
               || tempSp == null
@@ -168,7 +170,7 @@ public class PlanningSeedData implements CommandLineRunner {
             return;
           }
 
-          batch.add(new ProductionLog(workOrder, timestamp, crTemp, tempSp, tempPv, speed));
+          batch.add(new ProductionLog(logId, workOrder, timestamp, crTemp, tempSp, tempPv, speed));
           if (batch.size() >= batchSize) {
             productionLogRepository.saveAll(batch);
             batch.clear();
@@ -253,6 +255,14 @@ public class PlanningSeedData implements CommandLineRunner {
   private Integer parseInteger(String value) {
     try {
       return value == null ? null : Integer.parseInt(value);
+    } catch (NumberFormatException exception) {
+      return null;
+    }
+  }
+
+  private Long parseLong(String value) {
+    try {
+      return value == null ? null : Long.parseLong(value);
     } catch (NumberFormatException exception) {
       return null;
     }

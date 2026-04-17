@@ -116,6 +116,7 @@ public class SimulationServiceImpl implements SimulationService {
     ProductionLog savedLog =
         productionLogRepository.save(
             new ProductionLog(
+                row.logId(),
                 workOrder,
                 row.timestamp(),
                 row.crTemp(),
@@ -170,6 +171,7 @@ public class SimulationServiceImpl implements SimulationService {
       while ((line = reader.readLine()) != null) {
         String[] columns = line.split(",", -1);
 
+        Long logId = parseLong(getColumn(columns, headerMap, "log_id"));
         String woId = getColumn(columns, headerMap, "wo_id");
         LocalDateTime timestamp = parseDateTime(getColumn(columns, headerMap, "timestamp"));
         Integer crTemp = parseInteger(getColumn(columns, headerMap, "cr_temp"));
@@ -177,7 +179,8 @@ public class SimulationServiceImpl implements SimulationService {
         Double tempPv = parseDouble(getColumn(columns, headerMap, "temp_pv"));
         Integer speed = parseInteger(getColumn(columns, headerMap, "speed"));
 
-        if (woId == null
+        if (logId == null
+            || woId == null
             || timestamp == null
             || crTemp == null
             || tempSp == null
@@ -186,7 +189,7 @@ public class SimulationServiceImpl implements SimulationService {
           continue;
         }
 
-        simulationRows.add(new SimulationRow(woId, timestamp, crTemp, tempSp, tempPv, speed));
+        simulationRows.add(new SimulationRow(logId, woId, timestamp, crTemp, tempSp, tempPv, speed));
       }
     } catch (Exception exception) {
       simulationRows.clear();
@@ -214,6 +217,14 @@ public class SimulationServiceImpl implements SimulationService {
   private Integer parseInteger(String value) {
     try {
       return value == null ? null : Integer.parseInt(value);
+    } catch (NumberFormatException exception) {
+      return null;
+    }
+  }
+
+  private Long parseLong(String value) {
+    try {
+      return value == null ? null : Long.parseLong(value);
     } catch (NumberFormatException exception) {
       return null;
     }
@@ -254,6 +265,7 @@ public class SimulationServiceImpl implements SimulationService {
   }
 
   private record SimulationRow(
+      Long logId,
       String woId,
       LocalDateTime timestamp,
       Integer crTemp,
