@@ -59,9 +59,12 @@ const {
   reconnectDelayMs: productionTrendReconnectDelayMs,
   lastErrorMessage: productionTrendErrorMessage,
   receivedMessageList: productionTrendMessageList,
+  latestEquipmentAlert,
+  equipmentAlertList,
   connect: connectProductionTrendSocket,
   disconnect: disconnectProductionTrendSocket,
   clearReceivedMessages: clearProductionTrendMessages,
+  clearEquipmentAlerts,
 } = useProductionTrendSocket()
 
 const filteredRealtimeTrendMessageList = computed(() => {
@@ -141,6 +144,18 @@ watch(logStreamLines, async () => {
     panelElement.scrollTop = panelElement.scrollHeight
   }
 })
+
+function getAlertToneClass(alertTypeValue) {
+  const normalizedAlertType =
+    typeof alertTypeValue === 'string' ? alertTypeValue.toUpperCase() : 'UNKNOWN'
+  if (normalizedAlertType.includes('HIGH') || normalizedAlertType.includes('CRITICAL')) {
+    return 'feature-view__alert-badge--danger'
+  }
+  if (normalizedAlertType.includes('LOW') || normalizedAlertType.includes('WARNING')) {
+    return 'feature-view__alert-badge--warn'
+  }
+  return 'feature-view__alert-badge--normal'
+}
 
 function parseTimestampToSortKey(timestampValue) {
   if (timestampValue === null || timestampValue === undefined) {
@@ -248,6 +263,49 @@ function refreshMonitoringData() {
         <button type="button" :disabled="productionTrendMessageList.length === 0" @click="clearProductionTrendMessages">
           메시지 비우기
         </button>
+      </div>
+    </section>
+
+    <section class="feature-view__panel">
+      <h3>설비 이상 알림</h3>
+      <p v-if="latestEquipmentAlert !== null" class="feature-view__status-hint">
+        최신 알림: {{ getFirstDefinedValue(latestEquipmentAlert, ['timestamp']) }}
+        / {{ getFirstDefinedValue(latestEquipmentAlert, ['machine_id']) }}
+      </p>
+      <div class="feature-view__actions">
+        <button type="button" :disabled="equipmentAlertList.length === 0" @click="clearEquipmentAlerts">
+          알림 비우기
+        </button>
+      </div>
+      <p v-if="equipmentAlertList.length === 0">수신된 설비 이상 알림이 없습니다.</p>
+      <div v-else class="feature-view__table-wrap">
+        <table class="feature-view__table">
+          <thead>
+            <tr>
+              <th>timestamp</th>
+              <th>machine_id</th>
+              <th>wo_id</th>
+              <th>alert_type</th>
+              <th>message</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(equipmentAlert, alertIndex) in equipmentAlertList" :key="alertIndex">
+              <td>{{ getFirstDefinedValue(equipmentAlert, ['timestamp']) }}</td>
+              <td>{{ getFirstDefinedValue(equipmentAlert, ['machine_id']) }}</td>
+              <td>{{ getFirstDefinedValue(equipmentAlert, ['wo_id']) }}</td>
+              <td>
+                <span
+                  class="feature-view__alert-badge"
+                  :class="getAlertToneClass(getFirstDefinedValue(equipmentAlert, ['alert_type']))"
+                >
+                  {{ getFirstDefinedValue(equipmentAlert, ['alert_type']) }}
+                </span>
+              </td>
+              <td>{{ getFirstDefinedValue(equipmentAlert, ['message']) }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -471,5 +529,28 @@ function refreshMonitoringData() {
   word-break: break-word;
   border-radius: var(--radius-sm);
   background: var(--color-background-soft);
+}
+
+.feature-view__alert-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.feature-view__alert-badge--normal {
+  color: #1b5e20;
+  background: rgba(46, 125, 50, 0.14);
+}
+
+.feature-view__alert-badge--warn {
+  color: #f57f17;
+  background: rgba(249, 168, 37, 0.18);
+}
+
+.feature-view__alert-badge--danger {
+  color: #b71c1c;
+  background: rgba(198, 40, 40, 0.18);
 }
 </style>

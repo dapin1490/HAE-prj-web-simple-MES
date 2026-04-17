@@ -4,6 +4,7 @@ import SockJS from 'sockjs-client/dist/sockjs'
 import { isDevFixturesMode } from '@/devFixtures/isDevFixturesMode'
 
 const DEFAULT_MAX_REALTIME_MESSAGE_COUNT = 50
+const DEFAULT_MAX_EQUIPMENT_ALERT_COUNT = 30
 const DEFAULT_RECONNECT_DELAY_MS = 3000
 const DEFAULT_WS_ENDPOINT = 'http://localhost:8080/ws-mes'
 
@@ -21,6 +22,14 @@ function getProductionTrendTopic() {
     return configuredTopic
   }
   return '/topic/production-trend'
+}
+
+function getEquipmentAlertTopic() {
+  const configuredTopic = import.meta.env.VITE_WS_EQUIPMENT_ALERT_TOPIC
+  if (typeof configuredTopic === 'string' && configuredTopic.trim() !== '') {
+    return configuredTopic
+  }
+  return '/topic/equipment-alert'
 }
 
 function getReconnectDelayMs() {
@@ -44,16 +53,44 @@ export function useProductionTrendSocket() {
   const lastErrorMessage = ref('')
   const lastReceivedMessage = ref(null)
   const receivedMessageList = ref([])
+  const latestEquipmentAlert = ref(null)
+  const equipmentAlertList = ref([])
   const reconnectAttemptCount = ref(0)
   const reconnectDelayMs = getReconnectDelayMs()
   let stompClient = null
   let topicSubscription = null
+  let equipmentAlertSubscription = null
   let manualDisconnectRequested = false
   /** @type {ReturnType<typeof setInterval> | null} */
   let devFixtureTrendIntervalId = null
 
   const isConnected = computed(() => connectionState.value === 'connected')
   const isAutoReconnectEnabled = computed(() => reconnectDelayMs > 0)
+
+  function pushEquipmentAlert(rawAlert) {
+    const normalizedAlert =
+      typeof rawAlert === 'object' && rawAlert !== null
+        ? {
+            machine_id: rawAlert.machine_id ?? '-',
+            wo_id: rawAlert.wo_id ?? '-',
+            alert_type: rawAlert.alert_type ?? 'UNKNOWN',
+            message: rawAlert.message ?? '설비 이상이 감지되었습니다.',
+            timestamp: rawAlert.timestamp ?? new Date().toISOString().slice(0, 19).replace('T', ' '),
+          }
+        : {
+            machine_id: '-',
+            wo_id: '-',
+            alert_type: 'UNKNOWN',
+            message: String(rawAlert),
+            timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          }
+
+    latestEquipmentAlert.value = normalizedAlert
+    equipmentAlertList.value = [normalizedAlert, ...equipmentAlertList.value].slice(
+      0,
+      DEFAULT_MAX_EQUIPMENT_ALERT_COUNT,
+    )
+  }
 
   function disconnect() {
     manualDisconnectRequested = true
@@ -73,6 +110,10 @@ export function useProductionTrendSocket() {
     if (topicSubscription) {
       topicSubscription.unsubscribe()
       topicSubscription = null
+    }
+    if (equipmentAlertSubscription) {
+      equipmentAlertSubscription.unsubscribe()
+      equipmentAlertSubscription = null
     }
 
     const clientToClose = stompClient
@@ -121,6 +162,18 @@ export function useProductionTrendSocket() {
             0,
             DEFAULT_MAX_REALTIME_MESSAGE_COUNT,
           )
+          if (tickCounter % 10 === 0) {
+            pushEquipmentAlert({
+              machine_id: tickCounter % 20 === 0 ? 'M-02' : 'M-01',
+              wo_id: 'WO-220101-001',
+              alert_type: tickCounter % 20 === 0 ? 'TEMP_HIGH' : 'TEMP_DEVIATION',
+              message:
+                tickCounter % 20 === 0
+                  ? '설비 M-02 이상 감지: 온도 상한 초과'
+                  : '설비 M-01 이상 감지: 지시 대비 실측 온도 편차 발생',
+              timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            })
+          }
         }, intervalMs)
       })
       return
@@ -154,6 +207,15 @@ export function useProductionTrendSocket() {
             DEFAULT_MAX_REALTIME_MESSAGE_COUNT,
           )
         })
+        equipmentAlertSubscription = nextClient.subscribe(getEquipmentAlertTopic(), (message) => {
+          let parsedAlert
+          try {
+            parsedAlert = JSON.parse(message.body)
+          } catch {
+            parsedAlert = message.body
+          }
+          pushEquipmentAlert(parsedAlert)
+        })
       },
       onStompError: (frame) => {
         lastErrorMessage.value = frame.headers.message ?? 'STOMP 오류가 발생했습니다.'
@@ -185,6 +247,11 @@ export function useProductionTrendSocket() {
     receivedMessageList.value = []
   }
 
+  function clearEquipmentAlerts() {
+    latestEquipmentAlert.value = null
+    equipmentAlertList.value = []
+  }
+
   return {
     connectionState,
     isConnected,
@@ -194,8 +261,11 @@ export function useProductionTrendSocket() {
     lastErrorMessage,
     lastReceivedMessage,
     receivedMessageList,
+    latestEquipmentAlert,
+    equipmentAlertList,
     connect,
     disconnect,
     clearReceivedMessages,
+    clearEquipmentAlerts,
   }
 }
