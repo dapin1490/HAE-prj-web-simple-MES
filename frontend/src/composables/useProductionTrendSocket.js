@@ -81,7 +81,7 @@ function createProductionTrendSocketStore() {
   const isAutoReconnectEnabled = computed(() => reconnectDelayMs > 0)
 
   function trimEquipmentAlertDedupMap() {
-    while (equipmentAlertLastSeenAtMap.size > DEFAULT_MAX_EQUIPMENT_ALERT_DEDUP_KEYS) {
+    if (equipmentAlertLastSeenAtMap.size > DEFAULT_MAX_EQUIPMENT_ALERT_DEDUP_KEYS) {
       const oldestKey = equipmentAlertLastSeenAtMap.keys().next().value
       if (oldestKey === undefined) {
         return
