@@ -57,7 +57,7 @@ function applyChartData() {
           fill: false,
           tension: 0.2,
           pointRadius: 0,
-          spanGaps: true,
+          spanGaps: false,
         },
         {
           label: 'temp_sp 지시 (℃)',
@@ -68,7 +68,7 @@ function applyChartData() {
           fill: false,
           tension: 0.2,
           pointRadius: 0,
-          spanGaps: true,
+          spanGaps: false,
         },
         {
           label: 'temp_pv 실측 (℃)',
