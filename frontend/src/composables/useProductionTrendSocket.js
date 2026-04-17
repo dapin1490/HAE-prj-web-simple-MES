@@ -175,6 +175,7 @@ export function useProductionTrendSocket() {
           const wave = Math.sin(tickCounter / 5.0) * 2.0
           const parsedMessage = {
             wo_id: 'WO-220101-001',
+            machine_id: tickCounter % 20 === 0 ? 'M-02' : 'M-01',
             cr_temp: 70,
             temp_sp: 70.0,
             temp_pv: 69.0 + wave,

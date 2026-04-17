@@ -11,8 +11,11 @@ import {
 
 const CHART_MAX_POINTS = 80
 const LOG_MAX_LINES = 40
+const MAX_STREAM_TABLE_ROWS = 120
+const MAX_ALERT_TABLE_ROWS = 120
 
 const selectedWorkOrderId = ref('')
+const selectedMachineId = ref('')
 
 const {
   data: workOrdersData,
@@ -68,19 +71,48 @@ const {
 } = useProductionTrendSocket()
 
 const filteredRealtimeTrendMessageList = computed(() => {
-  if (selectedWorkOrderId.value === '') {
-    return productionTrendMessageList.value
-  }
-
-  return productionTrendMessageList.value.filter((messageItem) => {
+  const filteredByMachine = productionTrendMessageList.value.filter((messageItem) => {
     if (typeof messageItem !== 'object' || messageItem === null) {
       return false
     }
-    return String(messageItem.wo_id ?? '') === selectedWorkOrderId.value
+    if (selectedMachineId.value === '') {
+      return true
+    }
+    return String(messageItem.machine_id ?? '-') === selectedMachineId.value
   })
+
+  if (selectedWorkOrderId.value === '') {
+    return filteredByMachine
+  }
+
+  return filteredByMachine.filter((messageItem) => String(messageItem.wo_id ?? '') === selectedWorkOrderId.value)
 })
 
 const logPanelRef = ref(null)
+
+const machineOptionList = computed(() => {
+  const machineIdSet = new Set()
+  for (const workOrderRecord of workOrderList.value) {
+    if (workOrderRecord.machine_id !== null && workOrderRecord.machine_id !== undefined) {
+      machineIdSet.add(String(workOrderRecord.machine_id))
+    }
+  }
+  for (const messageItem of productionTrendMessageList.value) {
+    if (typeof messageItem !== 'object' || messageItem === null) {
+      continue
+    }
+    if (messageItem.machine_id !== null && messageItem.machine_id !== undefined) {
+      machineIdSet.add(String(messageItem.machine_id))
+    }
+  }
+  return Array.from(machineIdSet).sort()
+})
+
+const displayedTrendMessageList = computed(() =>
+  filteredRealtimeTrendMessageList.value.slice(0, MAX_STREAM_TABLE_ROWS),
+)
+
+const displayedEquipmentAlertList = computed(() => equipmentAlertList.value.slice(0, MAX_ALERT_TABLE_ROWS))
 
 function parseOptionalFiniteNumber(fieldValue) {
   const numericValue = Number(fieldValue)
@@ -212,6 +244,25 @@ function refreshMonitoringData() {
     void loadProductionLogs()
   }
 }
+
+function onMachineFilterChange() {
+  if (selectedMachineId.value === '') {
+    return
+  }
+  if (selectedWorkOrderId.value === '') {
+    return
+  }
+  const selectedWorkOrderRecord = workOrderList.value.find(
+    (workOrderRecord) => String(workOrderRecord.wo_id ?? '') === selectedWorkOrderId.value,
+  )
+  if (
+    selectedWorkOrderRecord &&
+    String(selectedWorkOrderRecord.machine_id ?? '') !== '' &&
+    String(selectedWorkOrderRecord.machine_id ?? '') !== selectedMachineId.value
+  ) {
+    selectedWorkOrderId.value = ''
+  }
+}
 </script>
 
 <template>
@@ -273,12 +324,15 @@ function refreshMonitoringData() {
         / {{ getFirstDefinedValue(latestEquipmentAlert, ['machine_id']) }}
       </p>
       <div class="feature-view__actions">
-        <button type="button" :disabled="equipmentAlertList.length === 0" @click="clearEquipmentAlerts">
+        <button type="button" :disabled="displayedEquipmentAlertList.length === 0" @click="clearEquipmentAlerts">
           알림 비우기
         </button>
       </div>
-      <p v-if="equipmentAlertList.length === 0">수신된 설비 이상 알림이 없습니다.</p>
-      <div v-else class="feature-view__table-wrap">
+      <p v-if="displayedEquipmentAlertList.length === 0">수신된 설비 이상 알림이 없습니다.</p>
+      <p v-if="displayedEquipmentAlertList.length > 0" class="feature-view__status-hint">
+        최근 {{ displayedEquipmentAlertList.length }}건 표시 (최대 {{ MAX_ALERT_TABLE_ROWS }}건)
+      </p>
+      <div v-if="displayedEquipmentAlertList.length > 0" class="feature-view__table-wrap feature-view__table-wrap--scroll">
         <table class="feature-view__table">
           <thead>
             <tr>
@@ -290,7 +344,7 @@ function refreshMonitoringData() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(equipmentAlert, alertIndex) in equipmentAlertList" :key="alertIndex">
+            <tr v-for="(equipmentAlert, alertIndex) in displayedEquipmentAlertList" :key="alertIndex">
               <td>{{ getFirstDefinedValue(equipmentAlert, ['timestamp']) }}</td>
               <td>{{ getFirstDefinedValue(equipmentAlert, ['machine_id']) }}</td>
               <td>{{ getFirstDefinedValue(equipmentAlert, ['wo_id']) }}</td>
@@ -311,6 +365,21 @@ function refreshMonitoringData() {
 
     <section class="feature-view__panel">
       <h3>실시간 트렌드 차트</h3>
+      <label class="feature-view__label" for="machine-filter">설비(machine_id) 선택</label>
+      <select
+        id="machine-filter"
+        v-model="selectedMachineId"
+        :disabled="machineOptionList.length === 0"
+        @change="onMachineFilterChange"
+      >
+        <option value="">전체 설비</option>
+        <option v-for="machineId in machineOptionList" :key="machineId" :value="machineId">
+          {{ machineId }}
+        </option>
+      </select>
+      <p class="feature-view__status-hint">
+        현재 차트 대상: {{ selectedMachineId === '' ? '전체 설비' : selectedMachineId }}
+      </p>
       <p v-if="chartSeriesPoints.length === 0">
         차트에 표시할 수 있는 데이터가 없습니다. (temp_pv, speed, timestamp 필요. cr_temp, temp_sp는 선택)
       </p>
@@ -325,15 +394,19 @@ function refreshMonitoringData() {
 
     <section class="feature-view__panel">
       <h3>실시간 트렌드 스트림</h3>
-      <p v-if="filteredRealtimeTrendMessageList.length === 0">
+      <p v-if="displayedTrendMessageList.length === 0">
         수신된 실시간 메시지가 없습니다.
       </p>
-      <div v-else class="feature-view__table-wrap">
+      <p v-if="displayedTrendMessageList.length > 0" class="feature-view__status-hint">
+        최근 {{ displayedTrendMessageList.length }}건 표시 (최대 {{ MAX_STREAM_TABLE_ROWS }}건)
+      </p>
+      <div v-if="displayedTrendMessageList.length > 0" class="feature-view__table-wrap feature-view__table-wrap--scroll">
         <table class="feature-view__table">
           <thead>
             <tr>
               <th>wo_id</th>
               <th>timestamp</th>
+              <th>machine_id</th>
               <th>cr_temp</th>
               <th>temp_sp</th>
               <th>temp_pv</th>
@@ -342,9 +415,10 @@ function refreshMonitoringData() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(messageItem, messageIndex) in filteredRealtimeTrendMessageList" :key="messageIndex">
+            <tr v-for="(messageItem, messageIndex) in displayedTrendMessageList" :key="messageIndex">
               <td>{{ getFirstDefinedValue(messageItem, ['wo_id']) }}</td>
               <td>{{ getFirstDefinedValue(messageItem, ['timestamp']) }}</td>
+              <td>{{ getFirstDefinedValue(messageItem, ['machine_id']) }}</td>
               <td>{{ getFirstDefinedValue(messageItem, ['cr_temp']) }}</td>
               <td>{{ getFirstDefinedValue(messageItem, ['temp_sp']) }}</td>
               <td>{{ getFirstDefinedValue(messageItem, ['temp_pv']) }}</td>
@@ -508,6 +582,11 @@ function refreshMonitoringData() {
 .feature-view__table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.feature-view__table-wrap--scroll {
+  max-height: 18rem;
+  overflow-y: auto;
 }
 
 .feature-view__table th,
