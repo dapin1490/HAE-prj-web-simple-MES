@@ -17,7 +17,6 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -280,34 +279,13 @@ public class SimulationServiceImpl implements SimulationService {
 
   private double calculateProgress(WorkOrder workOrder) {
     String woId = workOrder.getWoId();
-    Optional<ProductionLog> firstLog =
-        productionLogRepository.findFirstByWorkOrder_WoIdOrderByTimestampAsc(woId);
-    Optional<ProductionLog> lastLog =
-        productionLogRepository.findFirstByWorkOrder_WoIdOrderByTimestampDesc(woId);
-
-    if (firstLog.isEmpty() || lastLog.isEmpty()) {
+    int totalRows = timelineReference.getTotalRows(woId);
+    if (totalRows <= 0) {
       return 0.0;
     }
 
-    long tCurrent =
-        Math.max(
-            0L,
-            Duration.between(firstLog.get().getTimestamp(), lastLog.get().getTimestamp())
-                .getSeconds());
-    long tTotal = timelineReference.getTotalDurationSeconds(woId);
-
-    double progress;
-    if (tTotal > 0L) {
-      progress = Math.min(100.0, (tCurrent / (double) tTotal) * 100.0);
-    } else {
-      int totalRows = timelineReference.getTotalRows(woId);
-      if (totalRows <= 0) {
-        progress = 0.0;
-      } else {
-        long loadedCount = productionLogRepository.countByWorkOrder_WoId(woId);
-        progress = Math.min(100.0, (loadedCount / (double) totalRows) * 100.0);
-      }
-    }
+    long loadedCount = productionLogRepository.countByWorkOrder_WoId(woId);
+    double progress = Math.max(0.0, Math.min(100.0, (loadedCount / (double) totalRows) * 100.0));
 
     return Math.round(progress * 10.0) / 10.0;
   }
